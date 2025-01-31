@@ -1,0 +1,250 @@
+openapi: 3.0.0
+info:
+  title: LMS backend API
+  description: LMS API for OAuth 2.0 authentication and authorization, ticket creation, chat interactions, and intent and industry options retrieval. Important notice - not for direct usage. Only from ZAF application.
+  version: 1.0.0
+servers:
+  - url: https://yadmbof7we.execute-api.us-west-2.amazonaws.com/Prod
+paths:
+  /oauth/authorize:
+    get:
+      summary: Initiates the OAuth authorization process
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirects to the client with an authorization code
+        '400':
+          description: Invalid request
+  /oauth/access_token:
+    post:
+      summary: Exchanges authorization codes for access tokens
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code, refresh_token]
+                code:
+                  type: string
+                redirect_uri:
+                  type: string
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Access token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+                  scope:
+                    type: string
+                  refresh_token:
+                    type: string
+        '400':
+          description: Invalid request
+  /create-tickets:
+    post:
+      summary: Uses AI model to create subjects and descriptions for new tickets based on the provided training template payload
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ICreateTicketsPayload'
+      responses:
+        '200':
+          description: Tickets created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  ai_response:
+                    type: object
+                  prompt:
+                    type: string
+        '400':
+          description: Invalid request
+  /chat:
+    post:
+      summary: AI provides response to the chat based on the provided training template payload and ticket data
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IChatPayload'
+      responses:
+        '200':
+          description: Chat handled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  ai_response:
+                    type: object
+                  prompt:
+                    type: string
+        '400':
+          description: Invalid request
+  /intent-options:
+    get:
+      summary: Retrieves available intent options
+      security:
+        - bearerAuth: [ ]
+      responses:
+        '200':
+          description: Intent options retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          description: Invalid request
+  /industry-options:
+    get:
+      security:
+        - bearerAuth: [ ]
+      summary: Retrieves available industry options
+      responses:
+        '200':
+          description: Industry options retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          description: Invalid request
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ICreateTicketsPayload:
+      type: object
+      properties:
+        promptVersion:
+          type: string
+        template:
+          $ref: '#/components/schemas/ITrainingTemplate'
+        numberOfTickets:
+          type: integer
+        aiModel:
+          type: string
+        temperature:
+          type: number
+        maxTokens:
+          type: integer
+      required:
+        - promptVersion
+        - template
+        - numberOfTickets
+        - aiModel
+        - temperature
+        - maxTokens
+    IChatPayload:
+      type: object
+      properties:
+        promptVersion:
+          type: string
+        template:
+          $ref: '#/components/schemas/ITrainingTemplate'
+        ticketData:
+          type: array
+          items:
+            $ref: '#/components/schemas/ITicket'
+        aiModel:
+          type: string
+        temperature:
+          type: number
+        maxTokens:
+          type: integer
+      required:
+        - promptVersion
+        - template
+        - ticketData
+        - aiModel
+        - temperature
+        - maxTokens
+    ITrainingTemplate:
+      type: object
+      properties:
+        tone:
+          type: string
+        relatedTickets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ITicket'
+        refinePrompt:
+          type: string
+    ITicket:
+      type: object
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/IComment'
+    IComment:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, agent]
+        body:
+          type: string

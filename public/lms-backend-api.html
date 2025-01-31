@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swagger UI</title>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.18.2/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<div>
+    <h3>Generate JWT</h3>
+    <form id="jwt-form">
+        <label for="payload">Payload (JSON format):</label><br>
+        <textarea id="payload" name="payload" rows="4" cols="50"></textarea><br>
+        <label for="secret">Secret:</label><br>
+        <input type="text" id="secret" name="secret"><br>
+        <input type="submit" value="Generate JWT">
+    </form>
+    <p id="jwt-output"></p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.18.2/swagger-ui-bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.18.2/swagger-ui-standalone-preset.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.2.0/jsrsasign-all-min.js"></script>
+<script>
+    window.onload = function() {
+        const ui = SwaggerUIBundle({
+            url: "swagger.yaml",
+            dom_id: '#swagger-ui',
+            presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset
+            ],
+            layout: "StandaloneLayout",
+            plugins: [
+                function() {
+                    return {
+                        components: {
+                            Topbar: function() {
+                                return null;
+                            }
+                        }
+                    };
+                }
+            ]
+        });
+
+        document.getElementById('jwt-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const payloadInput = document.getElementById('payload').value;
+            const secretInput = document.getElementById('secret').value;
+            let payload;
+            try {
+                payload = JSON.parse(payloadInput);
+            } catch (e) {
+                document.getElementById('jwt-output').innerText = 'Invalid JSON format';
+                return;
+            }
+            const jwt = generateJWT(payload, secretInput);
+            document.getElementById('jwt-output').innerText = jwt;
+            ui.authActions.authorize({
+                auth: {
+                    name: "bearerAuth",
+                    schema: {
+                        type: "http",
+                        scheme: "bearer",
+                        bearerFormat: "JWT"
+                    },
+                    value: "Bearer " + jwt
+                }
+            });
+        });
+
+        function generateJWT(payload, secret) {
+            const header = { alg: "HS256", typ: "JWT" };
+
+            const sHeader = JSON.stringify(header);
+            const sPayload = JSON.stringify(payload);
+            const jwt = KJUR.jws.JWS.sign("HS256", sHeader, sPayload, { utf8: secret });
+
+            return jwt;
+        }
+    };
+</script>
+</body>
+</html>
